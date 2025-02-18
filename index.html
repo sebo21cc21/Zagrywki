@@ -5,12 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Odblokowywanie contentu wg lokalizacji</title>
     <style>
-      /* Styl mapy oraz ukrytego contentu */
       #map {
         height: 500px;
         width: 100%;
       }
-      #unlocked-content {
+      .unlocked-content {
         display: none;
         margin: 20px;
         padding: 20px;
@@ -20,32 +19,42 @@
     </style>
   </head>
   <body>
-    <h1>Sprawdź, czy jesteś w strefie Lotniska w Chrcynnie!</h1>
+    <h1>Sprawdź, czy jesteś w jednej z wyznaczonych stref!</h1>
     <div id="map"></div>
-    <div id="unlocked-content">
-      <h2>Odblokowany Content!</h2>
+    <!-- Content dla poszczególnych stref -->
+    <div id="unlocked-content-1" class="unlocked-content">
+      <h2>Lotnisko w Chrcynnie</h2>
       <p>Gratulacje – znajdujesz się w strefie Lotniska w Chrcynnie!</p>
+    </div>
+    <div id="unlocked-content-2" class="unlocked-content">
+      <h2>Rondo Daszyńskiego</h2>
+      <p>Gratulacje – znajdujesz się w strefie 5 km od Ronda Daszyńskiego!</p>
+    </div>
+    <div id="unlocked-content-3" class="unlocked-content">
+      <h2>Warszawa Nowy Świat</h2>
+      <p>Gratulacje – znajdujesz się w strefie 10 km od Warszawy Nowy Świat!</p>
     </div>
 
     <script>
       let map;
       let userMarker;
-      let userCircle; // dodatkowy okrąg dla Twojej lokalizacji
+      let userCircle; // dodatkowy okrąg wskazujący Twoją lokalizację
 
-      // Ustawienie geofence – zwiększony promień do 20000 m (20 km)
+      // Definicja stref geofence
       const geofenceZones = [
-        { center: { lat: 52.573889, lng: 20.871667 }, radius: 20000 }
+        { name: "Lotnisko w Chrcynnie", center: { lat: 52.573889, lng: 20.871667 }, radius: 20000 },
+        { name: "Rondo Daszyńskiego", center: { lat: 52.232, lng: 21.010 }, radius: 5000 },
+        { name: "Warszawa Nowy Świat", center: { lat: 52.230, lng: 21.012 }, radius: 10000 }
       ];
       const circles = [];
 
       function initMap() {
-        // Ustawienie mapy z centrem na Lotnisku w Chrcynnie
         map = new google.maps.Map(document.getElementById("map"), {
           center: { lat: 52.573889, lng: 20.871667 },
           zoom: 10
         });
 
-        // Rysowanie strefy geofence jako dużego czerwonego kółka
+        // Rysowanie stref geofence jako czerwonych kół
         geofenceZones.forEach(zone => {
           const circle = new google.maps.Circle({
             strokeColor: "#FF0000",
@@ -60,7 +69,6 @@
           circles.push(circle);
         });
 
-        // Użycie geolokalizacji do monitorowania Twojej pozycji
         if (navigator.geolocation) {
           navigator.geolocation.watchPosition(
             position => {
@@ -69,7 +77,7 @@
                 lng: position.coords.longitude
               };
 
-              // Ustawienie markera jako niebieskiej kropki i dodatkowego okręgu
+              // Ustawienie markera jako niebieskiej kropki oraz małego niebieskiego okręgu
               if (!userMarker) {
                 userMarker = new google.maps.Marker({
                   position: pos,
@@ -85,22 +93,19 @@
                   fillOpacity: 0.35,
                   map: map,
                   center: pos,
-                  radius: 50  // mały promień – możesz dostosować
+                  radius: 50
                 });
               } else {
                 userMarker.setPosition(pos);
                 userCircle.setCenter(pos);
               }
-              // Opcjonalne wyśrodkowanie mapy na Twojej pozycji
               map.setCenter(pos);
 
-              // Sprawdzenie, czy znajdujesz się wewnątrz strefy
-              let isInZone = geofenceZones.some(zone => {
-                return isInsideZone(pos, zone.center, zone.radius);
+              // Sprawdzenie każdej strefy i wyświetlenie odpowiedniego contentu
+              geofenceZones.forEach((zone, index) => {
+                const inZone = isInsideZone(pos, zone.center, zone.radius);
+                document.getElementById("unlocked-content-" + (index + 1)).style.display = inZone ? "block" : "none";
               });
-
-              // Pokazanie lub ukrycie dodatkowego contentu
-              document.getElementById("unlocked-content").style.display = isInZone ? "block" : "none";
             },
             () => {
               handleLocationError(true, map.getCenter());
@@ -111,18 +116,16 @@
         }
       }
 
-      // Funkcja obliczająca dystans między dwoma punktami przy użyciu wzoru Haversine
+      // Obliczanie dystansu między dwoma punktami (wzór Haversine)
       function isInsideZone(userPos, zoneCenter, zoneRadius) {
         const R = 6371000; // promień Ziemi w metrach
         const dLat = toRad(zoneCenter.lat - userPos.lat);
         const dLon = toRad(zoneCenter.lng - userPos.lng);
         const lat1 = toRad(userPos.lat);
         const lat2 = toRad(zoneCenter.lat);
-
-        const a =
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.sin(dLon / 2) * Math.sin(dLon / 2) *
-          Math.cos(lat1) * Math.cos(lat2);
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2) *
+                  Math.cos(lat1) * Math.cos(lat2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const distance = R * c;
         return distance <= zoneRadius;
@@ -133,16 +136,12 @@
       }
 
       function handleLocationError(browserHasGeolocation, pos) {
-        alert(
-          browserHasGeolocation
-            ? "Błąd: Usługa geolokalizacji nie działa."
-            : "Błąd: Twoja przeglądarka nie wspiera geolokalizacji."
-        );
+        alert(browserHasGeolocation 
+              ? "Błąd: Usługa geolokalizacji nie działa." 
+              : "Błąd: Twoja przeglądarka nie wspiera geolokalizacji.");
       }
     </script>
-    <!-- Pamiętaj o podmianie klucza API -->
-    <script async defer
-      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCIXkS0iYMaZY5IeOkFkf5PwhiJxLA3Lh8&callback=initMap">
-    </script>
+    <!-- Pamiętaj, aby podmienić YOUR_API_KEY na Twój własny klucz API -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCIXkS0iYMaZY5IeOkFkf5PwhiJxLA3Lh8&callback=initMap"></script>
   </body>
 </html>
