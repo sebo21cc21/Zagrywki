@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Odblokowywanie contentu wg lokalizacji</title>
+    <style>
+      /* Styl mapy oraz ukrytego contentu */
+      #map {
+        height: 500px;
+        width: 100%;
+      }
+      #unlocked-content {
+        display: none;
+        margin: 20px;
+        padding: 20px;
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Sprawdź, czy jesteś w strefie Lotniska w Chrcynnie!</h1>
+    <div id="map"></div>
+    <div id="unlocked-content">
+      <h2>Odblokowany Content!</h2>
+      <p>Gratulacje – znajdujesz się w strefie Lotniska w Chrcynnie!</p>
+    </div>
+
+    <script>
+      let map;
+      let userMarker;
+      let userCircle; // dodatkowy okrąg dla Twojej lokalizacji
+
+      // Ustawienie geofence – zwiększony promień do 20000 m (20 km)
+      const geofenceZones = [
+        { center: { lat: 52.573889, lng: 20.871667 }, radius: 20000 }
+      ];
+      const circles = [];
+
+      function initMap() {
+        // Ustawienie mapy z centrem na Lotnisku w Chrcynnie
+        map = new google.maps.Map(document.getElementById("map"), {
+          center: { lat: 52.573889, lng: 20.871667 },
+          zoom: 10
+        });
+
+        // Rysowanie strefy geofence jako dużego czerwonego kółka
+        geofenceZones.forEach(zone => {
+          const circle = new google.maps.Circle({
+            strokeColor: "#FF0000",
+            strokeOpacity: 0.8,
+            strokeWeight: 2,
+            fillColor: "#FF0000",
+            fillOpacity: 0.35,
+            map: map,
+            center: zone.center,
+            radius: zone.radius
+          });
+          circles.push(circle);
+        });
+
+        // Użycie geolokalizacji do monitorowania Twojej pozycji
+        if (navigator.geolocation) {
+          navigator.geolocation.watchPosition(
+            position => {
+              const pos = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+              };
+
+              // Ustawienie markera jako niebieskiej kropki i dodatkowego okręgu
+              if (!userMarker) {
+                userMarker = new google.maps.Marker({
+                  position: pos,
+                  map: map,
+                  title: "Twoja lokalizacja",
+                  icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                });
+                userCircle = new google.maps.Circle({
+                  strokeColor: "#0000FF",
+                  strokeOpacity: 0.8,
+                  strokeWeight: 2,
+                  fillColor: "#0000FF",
+                  fillOpacity: 0.35,
+                  map: map,
+                  center: pos,
+                  radius: 50  // mały promień – możesz dostosować
+                });
+              } else {
+                userMarker.setPosition(pos);
+                userCircle.setCenter(pos);
+              }
+              // Opcjonalne wyśrodkowanie mapy na Twojej pozycji
+              map.setCenter(pos);
+
+              // Sprawdzenie, czy znajdujesz się wewnątrz strefy
+              let isInZone = geofenceZones.some(zone => {
+                return isInsideZone(pos, zone.center, zone.radius);
+              });
+
+              // Pokazanie lub ukrycie dodatkowego contentu
+              document.getElementById("unlocked-content").style.display = isInZone ? "block" : "none";
+            },
+            () => {
+              handleLocationError(true, map.getCenter());
+            }
+          );
+        } else {
+          handleLocationError(false, map.getCenter());
+        }
+      }
+
+      // Funkcja obliczająca dystans między dwoma punktami przy użyciu wzoru Haversine
+      function isInsideZone(userPos, zoneCenter, zoneRadius) {
+        const R = 6371000; // promień Ziemi w metrach
+        const dLat = toRad(zoneCenter.lat - userPos.lat);
+        const dLon = toRad(zoneCenter.lng - userPos.lng);
+        const lat1 = toRad(userPos.lat);
+        const lat2 = toRad(zoneCenter.lat);
+
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.sin(dLon / 2) * Math.sin(dLon / 2) *
+          Math.cos(lat1) * Math.cos(lat2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = R * c;
+        return distance <= zoneRadius;
+      }
+
+      function toRad(value) {
+        return value * Math.PI / 180;
+      }
+
+      function handleLocationError(browserHasGeolocation, pos) {
+        alert(
+          browserHasGeolocation
+            ? "Błąd: Usługa geolokalizacji nie działa."
+            : "Błąd: Twoja przeglądarka nie wspiera geolokalizacji."
+        );
+      }
+    </script>
+    <!-- Pamiętaj o podmianie klucza API -->
+    <script async defer
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCIXkS0iYMaZY5IeOkFkf5PwhiJxLA3Lh8&callback=initMap">
+    </script>
+  </body>
+</html>
